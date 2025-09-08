@@ -1,0 +1,167 @@
+---
+- hosts: db
+  become: yes
+  tasks:
+    - name: update apt cache
+      apt:
+        update_cache: yes
+
+    - name: install pymysql dependency for Ansible
+      apt:
+        name: python3-pymysql
+        state: present
+
+    - name: install mariadb
+      apt:
+        name: mariadb-server
+        state: present
+
+    - name: start mariadb
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: create wordpress database
+      mysql_db:
+        name: wordpress
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+
+    - name: Create 10 weak MySQL users
+      mysql_user:
+        name: "{{ item.name }}"
+        password: "{{ item.pass }}"
+        priv: wordpress.*:ALL
+        host: "%"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+      loop:
+        - { name: wpuser, pass: "12345" }
+        - { name: sqluser1, pass: "qwerty" }
+        - { name: sqluser2, pass: "youKnowMe" }
+        - { name: sqluser3, pass: "Liepsnelė13" }
+        - { name: sqluser4, pass: "asdfgh" }
+        - { name: sqluser5, pass: "letmein" }
+        - { name: sqluser6, pass: "rootpass" }
+        - { name: sqluser7, pass: "welcome123" }
+        - { name: sqluser8, pass: "abc12345" }
+        - { name: sqluser9, pass: "password!" }
+
+    - name: Configure MariaDB to listen on all interfaces
+      lineinfile:
+        path: /etc/mysql/mariadb.conf.d/50-server.cnf
+        regexp: '^bind-address\s*='
+        line: 'bind-address = 0.0.0.0'
+
+    - name: Restart MySQL
+      service:
+        name: mysql
+        state: restarted
+
+
+- hosts: web
+  become: yes
+  tasks:
+    - name: update apt cache
+      apt:
+        update_cache: yes
+
+    - name: install repo tools
+      apt:
+        name: software-properties-common
+        state: present
+
+    - name: add php 7.4 repo
+      apt_repository:
+        repo: ppa:ondrej/php
+        state: present
+        update_cache: yes
+
+    - name: install web stack
+      apt:
+        name:
+          - apache2
+          - php7.4
+          - libapache2-mod-php7.4
+          - php7.4-mysql
+        state: present
+
+    - name: Create distro users
+      user:
+        name: "{{ item.name }}"
+        password: "{{ item.pass | password_hash('sha512') }}"
+        shell: /bin/bash
+        create_home: yes
+      loop:
+        - { name: distuser1, pass: "Pa$$w0rD1" }
+        - { name: distuser2, pass: "Pa$$w0rD2" }
+        - { name: distuser3, pass: "Pa$$w0rD3" }
+        - { name: distuser4, pass: "Pa$$w0rD4" }
+        - { name: distuser5, pass: "Pa$$w0rD5" }
+        - { name: distuser6, pass: "Pa$$w0rD6" }
+        - { name: distuser7, pass: "Pa$$w0rD7" }
+        - { name: distuser8, pass: "Pa$$w0rD8" }
+
+    - name: start apache
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+    - name: download wp-cli
+      get_url:
+        url: https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+        dest: /usr/local/bin/wp
+        mode: '0755'
+
+    - name: download wordpress
+      command: wp core download --path=/var/www/html --version=5.2 --allow-root
+      args:
+        creates: /var/www/html/index.php
+
+    - name: configure wordpress
+      command: >
+        wp config create --path=/var/www/html
+        --dbname=wordpress --dbuser=wpuser
+        --dbpass=12345 --dbhost={{ hostvars['db']['ansible_host'] }}
+        --allow-root
+      args:
+        creates: /var/www/html/wp-config.php
+
+    - name: install wordpress (create tables)
+      command: >
+        wp core install
+        --url=http://193.219.91.104:14917
+        --title="Vuln"
+        --admin_user=setupadmin
+        --admin_password=weakpass
+        --admin_email=setup@example.com
+        --path=/var/www/html
+        --allow-root
+
+    - name: create admin users
+      command: >
+        wp user create {{ item.user }} {{ item.email }}
+        --role=administrator --user_pass={{ item.pass }}
+        --path=/var/www/html --allow-root
+      loop:
+        - { user: admin1, email: admin1@example.com, pass: password1 }
+        - { user: admin2, email: admin2@example.com, pass: letmein }
+        - { user: admin3, email: admin3@example.com, pass: 12345678 }
+        - { user: admin4, email: admin4@example.com, pass: qwertyui }
+        - { user: admin5, email: admin5@example.com, pass: password! }
+        - { user: admin6, email: admin6@example.com, pass: abc12345 }
+        - { user: admin7, email: admin7@example.com, pass: adminadmin }
+
+    - name: deploy vulnerable plugins
+      unarchive:
+        src: plugins/{{ item }}.zip
+        dest: /var/www/html/wp-content/plugins
+        remote_src: no
+      loop:
+        - contact-form-7.5.0 # CVE-2020-35489
+        - duplicator.1.3.0 # CVE-2020-11738
+        - list-children.2.0 # CVE-2025-4099
+        - themegrill-demo-importer.1.4.0 # CVE-2024-39629
+        - yaysmtp.2.5 # CVE-2025-0916

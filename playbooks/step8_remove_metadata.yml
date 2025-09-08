@@ -1,0 +1,29 @@
+- name: Remove unnecessary WP metadata
+  hosts: web
+  become: yes
+  tasks:
+    - name: Remove readme.html
+      file:
+        path: /var/www/html/readme.html
+        state: absent
+
+    - name: Remove license.txt
+      file:
+        path: /var/www/html/license.txt
+        state: absent
+
+    - name: Ensure mu-plugins dir exists
+      file:
+        path: /var/www/html/wp-content/mu-plugins
+        state: directory
+        mode: '0755'
+
+    - name: Deploy “strip metadata” mu-plugin
+      copy:
+        dest: /var/www/html/wp-content/mu-plugins/hardening.php
+        mode: '0644'
+        content: |
+          <?php
+          // Disable WP version output in <head> and feeds
+          remove_action('wp_head', 'wp_generator');
+          add_filter('the_generator', '__return_empty_string');

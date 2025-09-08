@@ -1,0 +1,44 @@
+- name: Deploy hardened .htaccess
+  hosts: web
+  become: yes
+  tasks:
+    - name: Ensure mod_rewrite is enabled
+      command: a2enmod rewrite
+      args:
+        creates: /etc/apache2/mods-enabled/rewrite.load
+      notify: Restart Apache
+
+    - name: Allow .htaccess overrides in Apache config
+      replace:
+        path: /etc/apache2/apache2.conf
+        regexp: '(<Directory /var/www/>[[:space:]\r\n]*Options [^\r\n]+\r?\n[[:space:]]*)AllowOverride None'
+        replace: '\1AllowOverride All'
+      notify: Restart Apache
+
+    - name: Deploy .htaccess with hardening rules
+      copy:
+        dest: /var/www/html/.htaccess
+        owner: www-data
+        group: www-data
+        mode: '0644'
+        content: |
+          <IfModule mod_autoindex.c>
+            Options -Indexes
+          </IfModule>
+
+          <LimitExcept GET POST>
+            Require all denied
+          </LimitExcept>
+
+          <IfModule mod_rewrite.c>
+            RewriteEngine On
+            RewriteCond %{THE_REQUEST} !HTTP/1\.1
+            RewriteCond %{THE_REQUEST} !HTTP/2
+            RewriteRule .* - [F,L]
+          </IfModule>
+
+  handlers:
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted

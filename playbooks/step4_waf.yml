@@ -1,0 +1,74 @@
+- name: ModSecurity WAF setup
+  hosts: web
+  become: yes
+  tasks:
+    - name: Install ModSecurity
+      apt:
+        name: libapache2-mod-security2
+        state: present
+        update_cache: yes
+
+    - name: Copy default config if missing
+      copy:
+        src: /etc/modsecurity/modsecurity.conf-recommended
+        dest: /etc/modsecurity/modsecurity.conf
+        remote_src: yes
+        force: no
+
+    - name: Enable WAF module
+      command: a2enmod security2
+      args:
+        creates: /etc/apache2/mods-enabled/security2.load
+
+    - name: Turn on blocking mode
+      lineinfile:
+        path: /etc/modsecurity/modsecurity.conf
+        regexp: '^SecRuleEngine'
+        line: 'SecRuleEngine On'
+
+    - name: Set Paranoia Level 2
+      blockinfile:
+        path: /etc/modsecurity/modsecurity.conf
+        insertafter: '^SecRuleEngine On'
+        block: |
+          # OWASP PL2
+          SecAction "id:900000,phase:1,pass,nolog,t:none,setvar:tx.paranoia_level=2"
+
+    - name: Ensure report dir exists
+      file:
+        path: /var/reports/waf
+        state: directory
+        mode: '0755'
+
+    - name: Daily WAF report → timestamped copy
+      cron:
+        name: "WAF daily snapshot"
+        minute: 0
+        hour: 2
+        job: >
+          cp /var/log/apache2/modsec_audit.log
+          /var/reports/waf/modsec_audit_$(date +\%Y\%m\%d).log
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
+
+- name: SQL daily report
+  hosts: db
+  become: yes
+  tasks:
+    - name: Ensure report dir exists
+      file:
+        path: /var/reports/sql
+        state: directory
+        mode: '0755'
+
+    - name: Daily SQL report → timestamped copy
+      cron:
+        name: "SQL daily snapshot"
+        minute: 0
+        hour: 2
+        job: >
+          cp /var/log/mysql/error.log
+          /var/reports/sql/error_$(date +\%Y\%m\%d).log

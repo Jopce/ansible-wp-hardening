@@ -1,0 +1,11 @@
+- import_playbook: step1_passwords.yml
+- import_playbook: step2_user_privileges.yml
+- import_playbook: step3_updates.yml
+- import_playbook: step4_waf.yml
+- import_playbook: step5_hide_throttle.yml
+- import_playbook: step6_disable_edit.yml
+- import_playbook: step7_disable_xmlrpc.yml
+- import_playbook: step8_remove_metadata.yml
+- import_playbook: step9_limit_roles.yml
+- import_playbook: step10_htaccess.yml
+- import_playbook: step11_backup.yml

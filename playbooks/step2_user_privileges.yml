@@ -1,0 +1,41 @@
+- name: Lock down users and WP credentials
+  hosts: web
+  become: yes
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    wpuser_password: "{{ hostvars['db']['sql_pw_map'].wpuser }}"
+  tasks:
+    - name: Ensure admin users are in admin group
+      user:
+        name: "{{ item }}"
+        groups: adm
+        append: yes
+      loop: "{{ admin_users }}"
+
+    - name: Ensure sudo users are in sudo group
+      user:
+        name: "{{ item }}"
+        groups: sudo
+        append: yes
+      loop: "{{ sudo_users }}"
+
+    - name: Remove sudo from minimal users
+      user:
+        name: "{{ item }}"
+        groups: users
+        append: no
+      loop: "{{ minimal_users }}"
+
+    - name: Lock down home directories
+      file:
+        path: "/home/{{ item }}"
+        mode: "0700"
+        state: directory
+      loop: "{{ admin_users + sudo_users + minimal_users }}"
+
+    - name: Replace DB_PASSWORD in wp-config.php
+      lineinfile:
+        path: /var/www/html/wp-config.php
+        regexp: "^define\\(\\s*'DB_PASSWORD'.*"
+        line: "define( 'DB_PASSWORD', '{{ wpuser_password }}' );"

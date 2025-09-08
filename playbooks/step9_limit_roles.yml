@@ -1,0 +1,41 @@
+- name: Limit WP roles & disable registrations
+  hosts: web
+  become: yes
+  tasks:
+    - name: List current roles (for debug)
+      command: wp role list --path=/var/www/html --allow-root
+      register: wp_roles_before
+
+    - name: Show roles before cleanup
+      debug:
+        msg: "{{ wp_roles_before.stdout_lines }}"
+
+    - name: Remove 'editor' role
+      command: wp role delete editor --path=/var/www/html --allow-root
+      ignore_errors: yes
+
+    - name: Remove 'author' role
+      command: wp role delete author --path=/var/www/html --allow-root
+      ignore_errors: yes
+
+    - name: Remove 'contributor' role
+      command: wp role delete contributor --path=/var/www/html --allow-root
+      ignore_errors: yes
+
+    - name: Remove 'subscriber' role
+      command: wp role delete subscriber --path=/var/www/html --allow-root
+      ignore_errors: yes
+
+    - name: Disable new user registration
+      command: wp option update users_can_register 0 --path=/var/www/html --allow-root
+
+    - name: Clear default role for new users
+      command: wp option update default_role '' --path=/var/www/html --allow-root
+
+    - name: List roles after cleanup
+      command: wp role list --path=/var/www/html --allow-root
+      register: wp_roles_after
+
+    - name: Show roles after cleanup
+      debug:
+        msg: "{{ wp_roles_after.stdout_lines }}"

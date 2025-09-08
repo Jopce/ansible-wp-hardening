@@ -1,0 +1,101 @@
+- name: Prep backup directory on backup server
+  hosts: backup
+  become: yes
+  tasks:
+    - name: Create /root/backup
+      file:
+        path: /root/backup
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+- name: Dump WordPress DB and push to backup
+  hosts: db
+  become: yes
+  tasks:
+    - name: Dump the 'wordpress' database to /tmp/wordpress.sql
+      shell: |
+        mysqldump wordpress > /tmp/wordpress.sql
+      args:
+        executable: /bin/bash
+
+    - name: Verify DB dump exists
+      stat:
+        path: /tmp/wordpress.sql
+      register: db_dump_stat
+
+    - name: Fetch DB dump to controller
+      fetch:
+        src: /tmp/wordpress.sql
+        dest: /tmp/wordpress.sql
+        flat: yes
+      when: db_dump_stat.stat.exists
+
+    - name: Copy DB dump to backup server
+      copy:
+        src: /tmp/wordpress.sql
+        dest: /root/backup/wordpress.sql
+        owner: root
+        group: root
+        mode: '0600'
+      delegate_to: backup
+      when: db_dump_stat.stat.exists
+
+    - name: Remove DB dump from DB host
+      file:
+        path: /tmp/wordpress.sql
+        state: absent
+
+    - name: Remove DB dump from controller
+      file:
+        path: /tmp/wordpress.sql
+        state: absent
+
+- name: Archive webroot and push to backup
+  hosts: web
+  become: yes
+  tasks:
+    - name: Check if web archive already exists
+      stat:
+        path: /tmp/webroot.tar.gz
+      register: web_archive_stat
+
+    - name: Archive /var/www/html to /tmp/webroot.tar.gz
+      archive:
+        path: /var/www/html
+        dest: /tmp/webroot.tar.gz
+        format: gz
+      when: not web_archive_stat.stat.exists
+
+    - name: Verify web archive exists
+      stat:
+        path: /tmp/webroot.tar.gz
+      register: web_archive_final
+
+    - name: Fetch web archive to controller
+      fetch:
+        src: /tmp/webroot.tar.gz
+        dest: /tmp/webroot.tar.gz
+        flat: yes
+      when: web_archive_final.stat.exists
+
+    - name: Copy web archive to backup server
+      copy:
+        src: /tmp/webroot.tar.gz
+        dest: /root/backup/webroot.tar.gz
+        owner: root
+        group: root
+        mode: '0600'
+      delegate_to: backup
+      when: web_archive_final.stat.exists
+
+    - name: Remove web archive from web host
+      file:
+        path: /tmp/webroot.tar.gz
+        state: absent
+
+    - name: Remove web archive from controller
+      file:
+        path: /tmp/webroot.tar.gz
+        state: absent

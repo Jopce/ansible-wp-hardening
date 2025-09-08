@@ -1,0 +1,10 @@
+- name: Disable xmlrpc.php
+  hosts: web
+  become: yes
+  tasks:
+    - name: Disable xmlrpc.php if present
+      command: mv /var/www/html/xmlrpc.php /var/www/html/xmlrpc.php.disabled
+      args:
+        removes: /var/www/html/xmlrpc.php
+        creates: /var/www/html/xmlrpc.php.disabled
+      ignore_errors: yes

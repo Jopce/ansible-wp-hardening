@@ -1,0 +1,10 @@
+- name: Disable file editing in dashboard
+  hosts: web
+  become: yes
+  tasks:
+    - name: Disable file editor in wp-config.php
+      lineinfile:
+        path: /var/www/html/wp-config.php
+        insertafter: "/* That's all, stop editing! Happy publishing. */"
+        line: "define('DISALLOW_FILE_EDIT', true);"
+        state: present

@@ -1,0 +1,35 @@
+dist_users:
+  - distuser1
+  - distuser2
+  - distuser3
+  - distuser4
+  - distuser5
+  - distuser6
+  - distuser7
+  - distuser8
+
+sql_users:
+  - wpuser
+  - sqluser1
+  - sqluser2
+  - sqluser3
+  - sqluser4
+  - sqluser5
+  - sqluser6
+  - sqluser7
+  - sqluser8
+  - sqluser9
+
+admin_users:
+  - distuser1
+  - distuser2
+
+sudo_users:
+  - distuser3
+  - distuser4
+  - distuser5
+
+minimal_users:
+  - distuser6
+  - distuser7
+  - distuser8

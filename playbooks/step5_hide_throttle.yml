@@ -1,0 +1,12 @@
+- name: Protect login (limit + hide)
+  hosts: web
+  become: yes
+  tasks:
+    - name: Install “Limit Login Attempts Reloaded” plugin
+      command: wp plugin install limit-login-attempts-reloaded --activate --path=/var/www/html --allow-root
+
+    - name: Install “WPS Hide Login” plugin
+      command: wp plugin install wps-hide-login --activate --path=/var/www/html --allow-root
+
+    - name: Set custom login slug to /secret-login
+      command: wp option update whl_page secret-login --path=/var/www/html --allow-root
