@@ -1,0 +1,1 @@
+# Ansible WP hardening
